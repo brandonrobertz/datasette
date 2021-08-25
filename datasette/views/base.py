@@ -57,6 +57,7 @@ class DatasetteError(Exception):
 class BaseView:
     ds = None
     has_json_alternate = True
+    PAGE_SIZE = 10
 
     def __init__(self, datasette):
         self.ds = datasette
@@ -174,6 +175,31 @@ class BaseView:
         view.__module__ = cls.__module__
         view.__name__ = cls.__name__
         return view
+
+    def paginate(self, request, items, page_key='page'):
+        try:
+            this_page = int(request.args[page_key][0])
+        except Exception:
+            this_page = 0
+        start_num = this_page * self.PAGE_SIZE
+        n = -1
+        paged_items = []
+        yielded = 0
+        for stuff in items:
+            n += 1
+            # zoom to start page
+            if start_num > n:
+                continue
+            yielded += 1
+            if yielded > self.PAGE_SIZE:
+                break
+            paged_items.append(stuff)
+        next_page = None
+        for next in items:
+            next_page = int(n / self.PAGE_SIZE)
+            if next_page == this_page or not next_page:
+                next_page = None
+        return paged_items, next_page
 
 
 class DataView(BaseView):
