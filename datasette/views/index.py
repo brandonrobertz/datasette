@@ -22,7 +22,8 @@ class IndexView(BaseView):
         as_format = request.url_vars["format"]
         await self.ds.ensure_permissions(request.actor, ["view-instance"])
         databases = []
-        for name, db in self.ds.databases.items():
+        paged_items, next_page = self.paginate(request, self.ds.databases.items())
+        for name, db in paged_items:
             visible, database_private = await self.ds.check_visibility(
                 request.actor,
                 "view-database",
@@ -52,7 +53,7 @@ class IndexView(BaseView):
                     table_counts = {}
 
             tables = {}
-            for table in table_names:
+            for table in table_names[:TRUNCATE_AT+1]:
                 visible, private = await self.ds.check_visibility(
                     request.actor,
                     "view-table",
@@ -139,6 +140,7 @@ class IndexView(BaseView):
                 request=request,
                 context={
                     "databases": databases,
+                    "next_page": next_page,
                     "metadata": self.ds.metadata(),
                     "datasette_version": __version__,
                     "private": not await self.ds.permission_allowed(
