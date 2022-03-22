@@ -57,7 +57,7 @@ class DatasetteError(Exception):
 class BaseView:
     ds = None
     has_json_alternate = True
-    PAGE_SIZE = 10
+    PAGE_SIZE = 200
 
     def __init__(self, datasette):
         self.ds = datasette
