@@ -453,6 +453,10 @@ def uninstall(packages, yes):
     help="Enable cross-database joins using the /_memory database",
 )
 @click.option(
+    "--crossdb-dbs",
+    help="Specify DBs to enable cross-DB queries. Semi-colon separated.",
+)
+@click.option(
     "--nolock",
     is_flag=True,
     help="Ignore locking, open locked files in read-only mode",
@@ -491,6 +495,7 @@ def serve(
     open_browser,
     create,
     crossdb,
+    crossdb_dbs,
     nolock,
     ssl_keyfile,
     ssl_certfile,
@@ -551,6 +556,7 @@ def serve(
         version_note=version_note,
         pdb=pdb,
         crossdb=crossdb,
+        crossdb_dbs=crossdb_dbs,
         nolock=nolock,
     )
 
@@ -654,7 +660,7 @@ async def check_databases(ds):
             )
     # If --crossdb and more than SQLITE_LIMIT_ATTACHED show warning
     if (
-        ds.crossdb
+        ds.crossdb and not ds.crossdb_dbs
         and len([db for db in ds.databases.values() if not db.is_memory])
         > SQLITE_LIMIT_ATTACHED
     ):

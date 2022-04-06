@@ -206,6 +206,7 @@ class Datasette:
         config_dir=None,
         pdb=False,
         crossdb=False,
+        crossdb_dbs=None,
         nolock=False,
     ):
         assert config_dir is None or isinstance(
@@ -233,6 +234,11 @@ class Datasette:
         self.databases = collections.OrderedDict()
         self._refresh_schemas_lock = asyncio.Lock()
         self.crossdb = crossdb
+        self.crossdb_dbs = [
+            d.strip()
+            for d in re.split(r"\s*;\s*", crossdb_dbs or "")
+            if d.strip()
+        ]
         self.nolock = nolock
         if memory or crossdb or not self.files:
             self.add_database(Database(self, is_memory=True), name="_memory")
@@ -572,7 +578,10 @@ class Datasette:
         # If self.crossdb and this is _memory, connect the first SQLITE_LIMIT_ATTACHED databases
         if self.crossdb and database == "_memory":
             count = 0
-            for db_name, db in self.databases.items():
+            cross_dbs = self.databases.items()
+            if self.crossdb_dbs:
+                cross_dbs = [[db_name, self.databases[db_name]] for db_name in self.crossdb_dbs]
+            for db_name, db in cross_dbs:
                 if count >= SQLITE_LIMIT_ATTACHED or db.is_memory:
                     continue
                 sql = 'ATTACH DATABASE "file:{path}?{qs}" AS [{name}];'.format(
