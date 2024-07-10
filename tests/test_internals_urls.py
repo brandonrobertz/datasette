@@ -1,3 +1,4 @@
+from datasette import Request
 from datasette.app import Datasette
 from datasette.utils import PrefixedUrlString
 import pytest
@@ -13,6 +14,7 @@ def ds():
     [
         ("/", "/", "/"),
         ("/", "/foo", "/foo"),
+        ("/", "db", "/db"),
         ("/prefix/", "/", "/prefix/"),
         ("/prefix/", "/foo", "/prefix/foo"),
         ("/prefix/", "foo", "/prefix/foo"),
@@ -25,12 +27,23 @@ def test_path(ds, base_url, path, expected):
     assert isinstance(actual, PrefixedUrlString)
 
 
-def test_path_applied_twice_does_not_double_prefix(ds):
-    ds._settings["base_url"] = "/prefix/"
-    path = ds.urls.path("/")
-    assert path == "/prefix/"
-    path = ds.urls.path(path)
-    assert path == "/prefix/"
+@pytest.mark.parametrize(
+    "base_url,path,expected_path",
+    [
+        ("/prefix/", "/", "/prefix/"),
+        ("/prefix/", "", "/prefix/"),
+        ("/prefix/", "/prefix/", "/prefix/"),
+        ("/prefix/", "/prefix/table/1", "/prefix/table/1"),
+        ("/prefix/", "prefix/table/1", "/prefix/table/1"),
+        ("/prefix/", "-/static/app.css", "/prefix/-/static/app.css"),
+        ("/prefix/", "/table/1", "/prefix/table/1"),
+        ("/prefix/", "table/1", "/prefix/table/1"),
+    ],
+)
+def test_path_applied_twice_does_not_double_prefix(ds, base_url, path, expected_path):
+    ds._settings["base_url"] = base_url
+    actual_path = ds.urls.path(path)
+    assert actual_path == expected_path
 
 
 @pytest.mark.parametrize(
@@ -146,3 +159,19 @@ def test_row(ds, base_url, format, expected):
     actual = ds.urls.row("_memory", "facetable", "1", format=format)
     assert actual == expected
     assert isinstance(actual, PrefixedUrlString)
+
+
+@pytest.mark.parametrize(
+    "base_url,request_url,path",
+    [
+        ("/base_url", "/base_url", "/base_url/_memory/facetable/1"),
+        ("/base_url/", "/base_url/_memory/facetable", "/base_url/_memory/facetable/1"),
+        ("/base_url/", "/base_url/", "base_url/_memory/facetable/1"),
+    ],
+)
+def test_absolute_url_no_dupes_base_url(ds, base_url, request_url, path):
+    ds._settings["base_url"] = base_url
+    request = Request.fake(request_url, method="GET")
+    resolved = ds.absolute_url(request, path)
+    print("resolved", resolved)
+    assert resolved.count("base_url") == 1, f"Duplicate base_url detected: {resolved}"
